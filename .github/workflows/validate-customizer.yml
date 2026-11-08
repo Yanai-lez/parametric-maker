@@ -1,0 +1,25 @@
+name: Validate Parametric Maker
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [feature/makerworld-customizer-controls]
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check JavaScript syntax
+        run: node --input-type=module --check < app.js
+      - name: Verify the existing design files are unchanged
+        run: |
+          git diff --exit-code origin/main...HEAD -- index.html style.css

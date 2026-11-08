@@ -5,10 +5,10 @@ Mobile-friendly parametric model maker. Paste or upload OpenSCAD code, get a par
 `vendor/` holds OpenSCAD WASM and three.js so the site does not depend on a CDN.
 
 ## Supported (same as MakerWorld Parametric Model Maker)
-- Customizer comments: ranges, dropdowns, checkboxes, text, groups, `/* [Hidden] */`
+- OpenSCAD Customizer comments: numeric sliders/ranges, numeric and string dropdowns, checkboxes, text fields, vector values, groups, descriptions, `/* [Hidden] */`
 - `// color` color picker, `// font` font picker
 - `mw_plate_N()` plates, `mw_assembly_view()` (preview only, not exported)
-- File uploads via `default.svg` / `default.png` / `default.stl`
+- File uploads via `default.svg` / `default.png` / `default.stl` / `default.dxf`, plus code-defined upload controls
 - Bundled library: BOSL2 (`include <BOSL2/std.scad>;`)
 - `text()` with Liberation Sans
 - Save the code as `.scad`, export 3MF
@@ -21,3 +21,26 @@ After installing the app, open a `.scad` file in your file manager (or any app) 
 
 ## Fonts
 `vendor/fonts/g/` holds 56 Google font families (Regular + Bold, 20 with Hebrew), listed in `vendor/fonts/manifest.json`. A family is only loaded when the code or a parameter value uses its name, so unused fonts cost nothing. Use `font="Heebo:style=Bold"` style names.
+
+## Extra controls defined in model code
+
+The standard MakerWorld/OpenSCAD syntax remains supported. Parametric Maker also accepts optional annotations on the same parameter line:
+
+```scad
+title = "שלום עולם"; // @label-he: כותרת @label-en: Title
+subtitle = "טקסט לדוגמה"; // @type:textarea @label-he: תיאור @label-en: Description
+logo = "default.svg"; // @type:image @label-he: העלאת לוגו @label-en: Upload logo
+shape_file = "default.stl"; // @type:file @accept:.stl,.dxf
+accent = "#FF8800"; // color
+font_name = "Heebo"; // font
+size = [40, 20, 3];
+```
+
+- `@label-he` / `@label-en`: language-specific control names, selected using the device language.
+- `@description-he` / `@description-en`: language-specific help text.
+- `@type:textarea`: multi-line text input; `@type:file` and `@type:image`: upload controls.
+- `@accept:`: optional file extensions, such as `.png,.svg`.
+- Vector defaults such as `[40, 20, 3]` create one numeric field per component.
+- Text labels and inputs use automatic text direction, so Hebrew is RTL and English is LTR.
+
+These `@` annotations are Parametric Maker extensions; they are not MakerWorld syntax. Existing MakerWorld-style comments such as `// color`, `// font`, dropdowns and ranges continue to work.
