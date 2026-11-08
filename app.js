@@ -113,14 +113,15 @@ function parse(src){
   for(const raw of src.split('\n')){
     const l=raw.trim();
     const g=l.match(/^\/\*\s*\[(.+?)\]\s*\*\//);
-    if(g&&depth===0){ if(g[1].trim().toLowerCase()==='hidden')break; group=g[1].trim();prev='';continue; }
+    if(g&&depth===0){if(g[1].trim().toLowerCase()==='hidden')break;group=g[1].trim();prev='';continue;}
     if(depth===0){
-      const m=l.match(/^(\$?[A-Za-z_]\w*)\s*=\s*([^;]+?)\s*;\s*(?:\/\/\s*(.*))?$/);
-      if(m){ out.push(mk(m[1],m[2],m[3]||'',prev,group)); prev=''; }
-      else prev=l.startsWith('//')?l.slice(2).trim():'';
+      const m=l.match(/^(\$?[A-Za-z_]\w*)\s*=\s*(.+?)\s*;\s*(?:\/\/\s*(.*))?$/);
+      if(m){out.push(mk(m[1],m[2].trim(),m[3]||'',prev,group));prev='';}
+      else if(l.startsWith('//'))prev+=(prev?' ':'')+l.slice(2).trim();
+      else if(l)prev='';
     }
     const code=l.replace(/"(?:[^"\\]|\\.)*"/g,'').replace(/\/\/.*$/,'');
-    for(const c of code){ if(c==='{')depth++; else if(c==='}')depth--; }
+    for(const c of code){if(c==='{')depth++;else if(c==='}')depth=Math.max(0,depth-1);}
   }
   return out;
 }
@@ -130,16 +131,26 @@ function sel(s){
   });
 }
 function mk(name,val,cm,desc,group){
-  const p={name,desc,group,dirty:false};
-  const o=cm.match(/^\[(.*)\]/); const opts=o?o[1].trim():null;
+  const p={name,desc,group,dirty:false,meta:{}};
+  // Optional model-code directives: @label-he, @label-en, @description-he, @description-en,
+  // @type:text|textarea|file|image, @accept:.png,.svg
+  for(const x of cm.matchAll(/@(label-he|label-en|description-he|description-en|type|accept)\s*:\s*([^@]*?)(?=\s+@|$)/gi))
+    p.meta[x[1].toLowerCase()]=x[2].trim();
+  const lang=(document.documentElement.lang||navigator.language||'en').toLowerCase().startsWith('he')?'he':'en';
+  p.label=p.meta['label-'+lang]||name.replace(/_/g,' ');
+  p.description=p.meta['description-'+lang]||desc||'';
+  const o=cm.match(/^\[(.*)\]/);const opts=o?o[1].trim():null;
+  const type=(p.meta.type||'').toLowerCase();
   if(/^(true|false)$/.test(val)){p.t='bool';p.v=val==='true';}
   else if(/^".*"$/.test(val)){
     p.v=val.slice(1,-1);
-    if(/^color\b/.test(cm)&&/^#[0-9a-f]{6}$/i.test(p.v)){p.t='color';}
-    else if(/^font\b/.test(cm)){p.t='font';}
-    else if(/^default\.(png|svg|stl)$/i.test(p.v)){p.t='file';p.file=null;}
-    else if(opts!==null){p.t='sel';p.isStr=true;p.o=sel(opts);} else p.t='str';
+    if(type==='file'||type==='image'||/^default\.(png|jpe?g|webp|gif|svg|stl|dxf)$/i.test(p.v)){p.t='file';p.file=null;}
+    else if(type==='color'||(/^color\b/i.test(cm)&&/^#[0-9a-f]{6}$/i.test(p.v))){p.t='color';}
+    else if(type==='font'||/^font\b/i.test(cm)){p.t='font';}
+    else if(opts!==null){p.t='sel';p.isStr=true;p.o=sel(opts);}
+    else p.t=type==='textarea'?'textarea':'str';
   }
+  else if(/^\[[\s\d.,+-]+\]$/.test(val)){p.t='vec';p.v=val.slice(1,-1).split(',').map(x=>Number(x.trim()));}
   else if(/^-?(\d+\.?\d*|\.\d+)(e-?\d+)?$/i.test(val)){
     p.v=+val;
     if(opts!==null){
@@ -147,17 +158,19 @@ function mk(name,val,cm,desc,group){
         const a=opts.split(':').map(Number);p.t='num';
         if(a.length===2){p.min=a[0];p.max=a[1];p.step=Number.isInteger(p.v)?1:0.1;}
         else{p.min=a[0];p.step=a[1];p.max=a[2];}
-      } else {p.t='sel';p.o=sel(opts);}
-    } else p.t='numfree';
-  }
-  else {p.t='raw';p.v=val;}
+      }else{p.t='sel';p.o=sel(opts);}
+    }else p.t='numfree';
+  }else{p.t='raw';p.v=val;}
+  if(type==='file'||type==='image')p.t='file';
+  if(p.t==='file')p.accept=p.meta.accept||(/\.stl$/i.test(p.v)?'.stl':/\.svg$/i.test(p.v)?'.svg,image/svg+xml':/\.dxf$/i.test(p.v)?'.dxf':/\.png$/i.test(p.v)?'.png,image/png':'image/*,.svg,.stl,.dxf');
   return p;
 }
 const safeName=n=>String(n).replace(/[^\w.-]/g,'_');
 function arg(p){
   let v=p.v;
-  if(p.t==='file') v=p.file?'/uploads/'+safeName(p.file.name):p.v;
-  if(['str','color','font','file'].includes(p.t)||(p.t==='sel'&&p.isStr)) v='"'+String(v).replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"';
+  if(p.t==='file')v=p.file?'/uploads/'+safeName(p.file.name):p.v;
+  if(p.t==='vec')v='['+p.v.join(',')+']';
+  if(['str','color','font','file'].includes(p.t)||(p.t==='sel'&&p.isStr))v='"'+String(v).replace(/\\/g,'\\\\').replace(/"/g,'\\\"')+'"';
   return `-D${p.name}=${v}`;
 }
 
@@ -174,10 +187,10 @@ function build(){
     if(p.group!==g){g=p.group;const h=document.createElement('h3');h.textContent=g;box.append(h);}
     const r=document.createElement('div');r.className='row';
     const lab=document.createElement('label');
-    const nm=document.createElement('span');nm.textContent=p.name.replace(/_/g,' ');
+    const nm=document.createElement('span');nm.textContent=p.label||p.name.replace(/_/g,' ');nm.dir='auto';
     const vl=document.createElement('span');vl.style.color='var(--mut)';
     lab.append(nm,vl);r.append(lab);
-    if(p.desc){const d=document.createElement('div');d.className='d';d.textContent=p.desc;r.append(d);}
+    if(p.description||p.desc){const d=document.createElement('div');d.className='d';d.textContent=p.description||p.desc;d.dir='auto';r.append(d);}
     let el;
     const touch=()=>{p.dirty=true;schedule();};
     if(p.t==='bool'){el=document.createElement('input');el.type='checkbox';el.checked=p.v;el.onchange=()=>{p.v=el.checked;touch();};}
@@ -198,9 +211,11 @@ function build(){
       grp('Basic',FONTS);grp('Hebrew',fam(true));grp('Other',fam(false));
       el.onchange=()=>{p.v=el.value;touch();};}
     else if(p.t==='file'){el=document.createElement('input');el.type='file';vl.textContent=p.file?p.file.name:p.v+' (tap to upload)';
-      if(p.v.toLowerCase().endsWith('.svg'))el.accept='.svg,image/svg+xml';else if(p.v.toLowerCase().endsWith('.stl'))el.accept='.stl';else el.accept='.png,image/png';
+      el.accept=p.accept||'image/*,.svg,.stl,.dxf';
       el.onchange=async()=>{const f=el.files[0];if(!f)return;p.file={name:f.name,data:new Uint8Array(await f.arrayBuffer())};vl.textContent=f.name;touch();};}
-    else {el=document.createElement('input');el.type='text';el.value=p.v;el.oninput=()=>{p.v=el.value;touch();};}
+    else if(p.t==='textarea'){el=document.createElement('textarea');el.rows=3;el.value=p.v;el.dir='auto';el.oninput=()=>{p.v=el.value;touch();};}
+    else if(p.t==='vec'){el=document.createElement('div');el.style.display='flex';el.style.gap='6px';p.v.forEach((v,i)=>{const n=document.createElement('input');n.type='number';n.step='any';n.value=v;n.setAttribute('aria-label','Vector '+(i+1));n.oninput=()=>{if(n.value!==''){p.v[i]=+n.value;touch();}};el.append(n);});}
+    else {el=document.createElement('input');el.type='text';el.value=p.v;el.dir='auto';el.oninput=()=>{p.v=el.value;touch();};}
     r.append(el);box.append(r);
   }
 }
