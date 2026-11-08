@@ -31,7 +31,7 @@ async function runScad(code,log){
       if(uploads.length){mkdirp(m.FS,'/uploads');for(const p of uploads)m.FS.writeFile('/uploads/'+safeName(p.file.name),p.file.data);}
     }]});
   inst.FS.writeFile('/in.scad',code);
-  const args=['/in.scad','-o','/out.3mf','--backend=manifold'];
+  const args=['/in.scad','-o','/out.3mf','--backend=manifold','--enable=textmetrics'];
   for(const p of params) if(p.dirty||(p.t==='file'&&p.file)) args.push(arg(p));
   await new Promise(r=>setTimeout(r,20));
   inst.callMain(args);
@@ -254,7 +254,7 @@ async function render(auto){
     sel.style.display=res.length>1?'':'none';
     if(res.some(r=>r.id===prev))sel.value=prev;
     showSel();
-    st.textContent='Done ✔ '+log.filter(l=>/ERROR|WARNING/.test(l)).join('\n');
+    {const w=[...new Set(log.filter(l=>/ERROR|WARNING/.test(l)))];st.textContent='Done ✔'+(w.length?' ('+w.length+' warning'+(w.length>1?'s':'')+')\n'+w.slice(0,3).join('\n'):'');}
     $('#btnDl').disabled=!res.some(r=>r.exp);
   }catch(e){
     st.textContent='Error:\n'+(log.join('\n')||e.message||e);
