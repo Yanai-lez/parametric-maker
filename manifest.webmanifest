@@ -26,5 +26,39 @@
    "purpose": "maskable"
   }
  ],
- "id": "/parametric-maker/"
+ "id": "/parametric-maker/",
+ "share_target": {
+  "action": "./share-target",
+  "method": "POST",
+  "enctype": "multipart/form-data",
+  "params": {
+   "title": "title",
+   "text": "text",
+   "url": "url",
+   "files": [
+    {
+     "name": "scad",
+     "accept": [
+      "*/*",
+      ".scad",
+      "text/plain",
+      "application/octet-stream"
+     ]
+    }
+   ]
+  }
+ },
+ "file_handlers": [
+  {
+   "action": "./",
+   "accept": {
+    "text/plain": [
+     ".scad"
+    ],
+    "application/octet-stream": [
+     ".scad"
+    ]
+   }
+  }
+ ]
 }

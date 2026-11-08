@@ -15,3 +15,6 @@ Mobile-friendly parametric model maker. Paste or upload OpenSCAD code, get a par
 
 ## Install
 Open the site in Chrome (Android) or Safari (iOS) and use the browser menu: "Install app" / "Add to Home Screen". After the first visit it also works offline.
+
+## Open `.scad` files from other apps
+After installing the app, open a `.scad` file in your file manager (or any app) and choose **Share → Parametric Maker**. The code loads straight into the editor. You can also share selected text. On desktop Chrome the installed app can also be set as the default handler for `.scad` files. Android only picks up manifest changes after a while, so if the entry is missing, uninstall and re-install the app once.

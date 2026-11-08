@@ -294,7 +294,27 @@ function tab(t){
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
 
+function loadCode(text,name){
+  if(name)fileName=name.replace(/\.[^.]*$/,'').replace(/[^\w.\- ]/g,'_')||'model';
+  $('#code').value=text;params=[];build();tab('params');schedule();
+}
 $('#code').value='';build();tab('codepane');
+
+/* ---------- Open shared / opened files ---------- */
+(async()=>{
+  try{
+    if(new URLSearchParams(location.search).has('shared')){
+      const c=await caches.open('pm-shared');
+      const r=await c.match('shared-scad');
+      if(r){const d=await r.json();await c.delete('shared-scad');if(d.text&&d.text.trim())loadCode(d.text,d.name);}
+      history.replaceState(null,'',location.pathname);
+    }
+  }catch{}
+  if('launchQueue' in window)launchQueue.setConsumer(async p=>{
+    if(!p.files||!p.files.length)return;
+    const f=await p.files[0].getFile();loadCode(await f.text(),f.name);
+  });
+})();
 
 /* ---------- PWA ---------- */
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
