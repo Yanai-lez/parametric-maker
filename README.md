@@ -14,4 +14,4 @@ Mobile-friendly parametric model maker. Paste or upload OpenSCAD code, get a par
 - Save the code as `.scad`, export 3MF
 
 ## Install
-Open the site in Chrome (Android) or Safari (iOS) and use "Install app" / "Add to Home Screen". After the first visit it also works offline.
+Open the site in Chrome (Android) or Safari (iOS) and use the browser menu: "Install app" / "Add to Home Screen". After the first visit it also works offline.

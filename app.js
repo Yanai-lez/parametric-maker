@@ -298,7 +298,3 @@ $('#code').value='';build();tab('codepane');
 
 /* ---------- PWA ---------- */
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
-let installEv=null;
-addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEv=e;$('#btnInstall').style.display='';});
-$('#btnInstall').onclick=async()=>{if(!installEv)return;installEv.prompt();await installEv.userChoice;installEv=null;$('#btnInstall').style.display='none';};
-addEventListener('appinstalled',()=>{$('#btnInstall').style.display='none';});
