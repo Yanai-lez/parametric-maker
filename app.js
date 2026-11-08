@@ -134,10 +134,9 @@ async function render(auto){
   const log=[];
   try{
     const mod=await import(OSCAD);
-    const api=await mod.createOpenSCAD({noInitialRun:true,print:t=>log.push(t),printErr:t=>log.push(t)});
-    const inst=api.getInstance();
+    const inst=await mod.default({noInitialRun:true,print:t=>log.push(t),printErr:t=>log.push(t)});
     inst.FS.writeFile('/in.scad',$('#code').value);
-    const args=['/in.scad','-o','/out.stl'];
+    const args=['/in.scad','-o','/out.stl','--backend=manifold'];
     for(const p of params) if(p.dirty) args.push(arg(p));
     st.textContent='Building model…';
     await new Promise(r=>setTimeout(r,30));
@@ -145,7 +144,7 @@ async function render(auto){
     const d=inst.FS.readFile('/out.stl');
     lastStl=new Uint8Array(d);
     show(lastStl.buffer.slice(0));
-    st.textContent='Done ✔ '+(log.filter(l=>!/^\s*(Could not initialize|Convex|Geometry cache|CGAL|Edges|Halffacets|Facets|Volumes|Vertices|Halfedges|Rendering|Simple|Top level|Total|Geometries|Current)/.test(l)).join('\n')||'');
+    st.textContent='Done ✔ '+log.filter(l=>/ERROR|WARNING/.test(l)).join('\n');
     $('#btnDl').disabled=false;
   }catch(e){
     st.textContent='Error:\n'+(log.join('\n')||e.message||e);
