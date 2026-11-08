@@ -127,7 +127,7 @@ function build(){
       const list=FONTS.includes(p.v)?FONTS:[p.v,...FONTS];
       for(const f of list){const op=document.createElement('option');op.value=f;op.textContent=FONTS.includes(f)?f:f+' (falls back to Liberation Sans)';if(f===p.v)op.selected=true;el.append(op);}
       el.onchange=()=>{p.v=el.value;touch();};}
-    else if(p.t==='file'){el=document.createElement('input');el.type='file';vl.textContent=p.file?p.file.name:'default file needed';
+    else if(p.t==='file'){el=document.createElement('input');el.type='file';vl.textContent=p.file?p.file.name:p.v+' (tap to upload)';
       if(p.v.toLowerCase().endsWith('.svg'))el.accept='.svg,image/svg+xml';else if(p.v.toLowerCase().endsWith('.stl'))el.accept='.stl';else el.accept='.png,image/png';
       el.onchange=async()=>{const f=el.files[0];if(!f)return;p.file={name:f.name,data:new Uint8Array(await f.arrayBuffer())};vl.textContent=f.name;touch();};}
     else {el=document.createElement('input');el.type='text';el.value=p.v;el.oninput=()=>{p.v=el.value;touch();};}
