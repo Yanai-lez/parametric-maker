@@ -14,23 +14,23 @@
 <header>
   <h1>מחולל פרמטרי תלת־ממד</h1>
   <button id="btnRender" class="pri">עדכן</button>
-  <button id="btnDl" disabled>STL</button>
+  <button id="btnDl" disabled>3MF</button>
 </header>
 <main>
-  <section id="params" class="pane on"><div id="plist"></div></section>
+  <section id="params" class="pane"><div id="plist"></div></section>
   <section id="codepane" class="pane">
     <div class="bar">
       <button id="btnUp">העלה קובץ</button>
       <button id="btnPaste">הדבק מהלוח</button>
       <input id="file" type="file" accept=".scad,.txt" hidden>
     </div>
-    <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+    <textarea id="code" placeholder="הדבק כאן קוד OpenSCAD, או העלה קובץ .scad" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
   </section>
   <section id="view" class="pane"><canvas id="cv"></canvas><div id="status">טוען…</div></section>
 </main>
 <nav>
-  <button data-t="params" class="on">פרמטרים</button>
-  <button data-t="codepane">קוד</button>
+  <button data-t="codepane" class="on">קוד</button>
+  <button data-t="params">פרמטרים</button>
   <button data-t="view">תצוגה</button>
 </nav>
 

@@ -4,33 +4,6 @@ import {STLLoader} from './vendor/three/STLLoader.js';
 
 const OSCAD='./vendor/openscad.js';
 const $=s=>document.querySelector(s);
-const SAMPLE=`/* [מידות] */
-// אורך הקופסה
-length = 40; // [10:100]
-// רוחב
-width = 30; // [10:100]
-height = 15; // [5:60]
-wall = 2; // [1:0.5:6]
-
-/* [אפשרויות] */
-rounded = true;
-shape = "box"; // [box:קופסה, cyl:גליל]
-
-/* [Hidden] */
-$fn = 48;
-
-if (shape == "box") {
-  difference() {
-    cube([length, width, height]);
-    translate([wall, wall, wall]) cube([length-2*wall, width-2*wall, height]);
-  }
-} else {
-  difference() {
-    cylinder(d=length, h=height);
-    translate([0,0,wall]) cylinder(d=length-2*wall, h=height);
-  }
-}
-`;
 
 /* ---------- פרסור Customizer ---------- */
 let params=[], parsedSrc=null;
@@ -147,15 +120,17 @@ function show(buf){
 
 /* ---------- רינדור OpenSCAD ---------- */
 let lastStl=null;
-let timer=null,busy=false,again=false;
+let timer=null,busy=false,again=false,renderedSrc=null;
 function schedule(){clearTimeout(timer);timer=setTimeout(()=>render(true),500);}
 async function render(auto){
   if(busy){again=true;return;}
+  if(!$('#code').value.trim()){$('#status').textContent='אין קוד. הדבק או העלה קובץ בלשונית "קוד".';return;}
   busy=true;
   const btn=$('#btnRender'),st=$('#status');
   if($('#code').value!==parsedSrc)build();
   if(!auto)tab('view');btn.disabled=true;$('#btnDl').disabled=true;
   st.textContent='מעדכן מודל…';
+  renderedSrc=$('#code').value;
   const log=[];
   try{
     const mod=await import(OSCAD);
@@ -179,23 +154,62 @@ async function render(auto){
   if(again){again=false;schedule();}
 }
 $('#btnRender').onclick=()=>render(false);
+/* ---------- ייצוא 3MF ---------- */
+const crcT=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=crcT[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function zip(files){
+  const enc=new TextEncoder(),parts=[],cd=[];let off=0;
+  for(const [name,text] of files){
+    const n=enc.encode(name),d=enc.encode(text),crc=crc32(d);
+    const h=new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(8,0,true);
+    h.setUint32(14,crc,true);h.setUint32(18,d.length,true);h.setUint32(22,d.length,true);h.setUint16(26,n.length,true);
+    parts.push(new Uint8Array(h.buffer),n,d);
+    const c=new DataView(new ArrayBuffer(46));
+    c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);
+    c.setUint32(16,crc,true);c.setUint32(20,d.length,true);c.setUint32(24,d.length,true);c.setUint16(28,n.length,true);c.setUint32(42,off,true);
+    cd.push(new Uint8Array(c.buffer),n);
+    off+=30+n.length+d.length;
+  }
+  let cdLen=0;for(const x of cd)cdLen+=x.length;
+  const e=new DataView(new ArrayBuffer(22));
+  e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cdLen,true);e.setUint32(16,off,true);
+  return new Blob([...parts,...cd,new Uint8Array(e.buffer)],{type:'model/3mf'});
+}
+function to3mf(stlBuf){
+  const pos=new STLLoader().parse(stlBuf).attributes.position.array;
+  const map=new Map(),verts=[],tris=[];
+  for(let i=0;i<pos.length;i+=3){
+    const k=pos[i].toFixed(5)+','+pos[i+1].toFixed(5)+','+pos[i+2].toFixed(5);
+    let id=map.get(k);if(id===undefined){id=verts.length/3;map.set(k,id);verts.push(pos[i],pos[i+1],pos[i+2]);}
+    tris.push(id);
+  }
+  let v='',t='';
+  for(let i=0;i<verts.length;i+=3)v+=`<vertex x="${+verts[i].toFixed(5)}" y="${+verts[i+1].toFixed(5)}" z="${+verts[i+2].toFixed(5)}"/>`;
+  for(let i=0;i<tris.length;i+=3)if(tris[i]!==tris[i+1]&&tris[i+1]!==tris[i+2]&&tris[i]!==tris[i+2])t+=`<triangle v1="${tris[i]}" v2="${tris[i+1]}" v3="${tris[i+2]}"/>`;
+  return zip([
+    ['[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>'],
+    ['_rels/.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>'],
+    ['3D/3dmodel.model',`<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><resources><object id="1" type="model"><mesh><vertices>${v}</vertices><triangles>${t}</triangles></mesh></object></resources><build><item objectid="1"/></build></model>`]
+  ]);
+}
 $('#btnDl').onclick=()=>{
   if(!lastStl)return;
   const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([lastStl],{type:'model/stl'}));
-  a.download='model.stl';document.body.append(a);a.click();a.remove();
+  a.href=URL.createObjectURL(to3mf(lastStl.buffer.slice(0)));
+  a.download='model.3mf';document.body.append(a);a.click();a.remove();
 };
 
 /* ---------- טעינת קוד ---------- */
 $('#btnUp').onclick=()=>$('#file').click();
 $('#file').onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
-  $('#code').value=await f.text();params=[];build();tab('params');e.target.value='';try{localStorage.setItem('pm.code',$('#code').value);}catch{}
+  $('#code').value=await f.text();params=[];build();tab('params');e.target.value='';schedule();
 };
 $('#btnPaste').onclick=async()=>{
   try{
     const t=await navigator.clipboard.readText();
-    if(t){$('#code').value=t;params=[];build();tab('params');try{localStorage.setItem('pm.code',t);}catch{}}
+    if(t){$('#code').value=t;params=[];build();tab('params');schedule();}
   }catch{ $('#code').focus(); alert('הדפדפן לא אישר גישה ללוח. לחץ לחיצה ארוכה בתיבת הקוד והדבק ידנית.'); }
 };
 
@@ -206,9 +220,8 @@ function tab(t){
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
   if(t==='params'&&$('#code').value!==parsedSrc)build();
   if(t==='view'||t==='params')requestAnimationFrame(resize);
+  if(t!=='codepane'&&$('#code').value.trim()&&$('#code').value!==renderedSrc)schedule();
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
 
-let saved=null;try{saved=localStorage.getItem('pm.code');}catch{}
-$('#code').value=saved||SAMPLE;build();tab('params');setTimeout(()=>render(true),300);
-$('#code').addEventListener('input',()=>{try{localStorage.setItem('pm.code',$('#code').value);}catch{}});
+$('#code').value='';build();tab('codepane');
