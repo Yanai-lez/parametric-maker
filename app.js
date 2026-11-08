@@ -202,9 +202,13 @@ $('#btnDl').onclick=()=>{
 
 /* ---------- טעינת קוד ---------- */
 $('#btnUp').onclick=()=>$('#file').click();
-$('#file').onchange=async e=>{
-  const f=e.target.files[0];if(!f)return;
-  $('#code').value=await f.text();params=[];build();tab('params');e.target.value='';schedule();
+$('#file').onchange=e=>{
+  const f=e.target.files&&e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{$('#code').value=String(r.result);params=[];build();tab('params');schedule();};
+  r.onerror=()=>alert('לא הצלחתי לקרוא את הקובץ');
+  r.readAsText(f);
+  e.target.value='';
 };
 $('#btnPaste').onclick=async()=>{
   try{

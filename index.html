@@ -7,12 +7,12 @@
 <script type="importmap">
 {"imports":{"three":"./vendor/three/three.module.js"}}
 </script>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=4">
 
 </head>
 <body>
 <header>
-  <h1>מחולל פרמטרי תלת־ממד</h1>
+  <h1>מחולל פרמטרי תלת־ממד <small style="color:var(--mut);font-weight:400">v4</small></h1>
   <button id="btnRender" class="pri">עדכן</button>
   <button id="btnDl" disabled>3MF</button>
 </header>
@@ -22,7 +22,7 @@
     <div class="bar">
       <button id="btnUp">העלה קובץ</button>
       <button id="btnPaste">הדבק מהלוח</button>
-      <input id="file" type="file" accept=".scad,.txt" hidden>
+      <input id="file" type="file" style="display:none">
     </div>
     <textarea id="code" placeholder="הדבק כאן קוד OpenSCAD, או העלה קובץ .scad" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
   </section>
@@ -34,6 +34,6 @@
   <button data-t="view">תצוגה</button>
 </nav>
 
-<script type="module" src="app.js"></script>
+<script type="module" src="app.js?v=4"></script>
 </body>
 </html>
