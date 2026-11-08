@@ -6,7 +6,23 @@ const FONTS=['Liberation Sans','Liberation Sans:style=Bold','Liberation Sans:sty
 const FONT_FILES=['Regular','Bold','Italic','BoldItalic'];
 let fileName='model';
 const getBin=async u=>new Uint8Array(await (await fetch(u)).arrayBuffer());
-let fontCache=null,libCache={};
+let fontCache=null,libCache={},fontMan=[];
+const fontManP=fetch('./vendor/fonts/manifest.json').then(r=>r.json()).then(m=>{fontMan=m;try{if(params.some(p=>p.t==='font'))build();}catch{}return m;}).catch(()=>[]);
+const gFontCache={};
+// extra fonts are only loaded when the code or a parameter value mentions the family
+async function neededFonts(code){
+  await fontManP;
+  const hay=(code+' '+params.map(p=>typeof p.v==='string'?p.v:'').join(' ')).toLowerCase();
+  const out=[];
+  for(const f of fontMan){
+    if(!hay.includes(f.family.toLowerCase()))continue;
+    for(const fn of Object.values(f.files)){
+      if(!gFontCache[fn])gFontCache[fn]=getBin('./vendor/fonts/g/'+fn);
+      out.push([fn,await gFontCache[fn]]);
+    }
+  }
+  return out;
+}
 async function fonts(){return fontCache||(fontCache=Promise.all(FONT_FILES.map(async f=>[f,await getBin(`./vendor/fonts/LiberationSans-${f}.ttf`)])));}
 async function lib(name){
   if(!libCache[name])libCache[name]=(async()=>{
@@ -18,7 +34,7 @@ async function lib(name){
 const mkdirp=(FS,p)=>{let c='';for(const s of p.split('/').filter(Boolean)){c+='/'+s;try{FS.mkdir(c);}catch{}}};
 async function runScad(code,log){
   const mod=await import(OSCAD);
-  const fnt=await fonts();
+  const fnt=await fonts();const xf=await neededFonts(code);
   const libs=/\b(include|use)\s*<\s*BOSL2\//.test(code)?await lib('BOSL2'):null;
   const uploads=params.filter(p=>p.t==='file'&&p.file);
   const inst=await mod.default({noInitialRun:true,print:t=>log.push(t),printErr:t=>log.push(t),
@@ -26,6 +42,7 @@ async function runScad(code,log){
       m.ENV.FONTCONFIG_PATH='/fonts';m.ENV.OPENSCADPATH='/libraries';
       mkdirp(m.FS,'/fonts');mkdirp(m.FS,'/tmp/fc');
       for(const [f,d] of fnt)m.FS.writeFile(`/fonts/LiberationSans-${f}.ttf`,d);
+      for(const [fn,d] of xf)m.FS.writeFile('/fonts/'+fn,d);
       m.FS.writeFile('/fonts/fonts.conf','<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd"><fontconfig><dir>/fonts</dir><cachedir>/tmp/fc</cachedir></fontconfig>');
       if(libs){mkdirp(m.FS,'/libraries/BOSL2');for(const [f,d] of libs)m.FS.writeFile(`/libraries/BOSL2/${f}`,d);}
       if(uploads.length){mkdirp(m.FS,'/uploads');for(const p of uploads)m.FS.writeFile('/uploads/'+safeName(p.file.name),p.file.data);}
@@ -173,8 +190,12 @@ function build(){
       el.onchange=()=>{p.v=el.value;touch();};}
     else if(p.t==='color'){el=document.createElement('input');el.type='color';el.value=p.v;el.oninput=()=>{p.v=el.value;vl.textContent=el.value;touch();};vl.textContent=p.v;}
     else if(p.t==='font'){el=document.createElement('select');
-      const list=FONTS.includes(p.v)?FONTS:[p.v,...FONTS];
-      for(const f of list){const op=document.createElement('option');op.value=f;op.textContent=FONTS.includes(f)?f:f+' (falls back to Liberation Sans)';if(f===p.v)op.selected=true;el.append(op);}
+      const add=(par,f,label)=>{const op=document.createElement('option');op.value=f;op.textContent=label||f;if(f===p.v)op.selected=true;par.append(op);};
+      const known=new Set(FONTS);
+      const grp=(title,items)=>{if(!items.length)return;const g=document.createElement('optgroup');g.label=title;for(const f of items){known.add(f);add(g,f);}el.append(g);};
+      const fam=h=>fontMan.filter(f=>f.hebrew===h).flatMap(f=>[f.family,...(f.files.Bold?[f.family+':style=Bold']:[])]);
+      if(!FONTS.includes(p.v)&&!fam(true).concat(fam(false)).includes(p.v)&&!fontMan.some(f=>f.family===p.v))add(el,p.v,p.v+' (falls back to Liberation Sans)');
+      grp('Basic',FONTS);grp('Hebrew',fam(true));grp('Other',fam(false));
       el.onchange=()=>{p.v=el.value;touch();};}
     else if(p.t==='file'){el=document.createElement('input');el.type='file';vl.textContent=p.file?p.file.name:p.v+' (tap to upload)';
       if(p.v.toLowerCase().endsWith('.svg'))el.accept='.svg,image/svg+xml';else if(p.v.toLowerCase().endsWith('.stl'))el.accept='.stl';else el.accept='.png,image/png';

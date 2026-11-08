@@ -1,0 +1,423 @@
+[
+{
+"family": "Noto Sans Hebrew",
+"files": {
+"Regular": "noto-sans-hebrew-Regular.ttf",
+"Bold": "noto-sans-hebrew-Bold.ttf"
+},
+"hebrew": true
+},
+{
+"family": "Heebo",
+"files": {
+"Regular": "heebo-Regular.ttf",
+"Bold": "heebo-Bold.ttf"
+},
+"hebrew": true
+},
+{
+"family": "Rubik",
+"files": {
+"Regular": "rubik-Regular.ttf",
+"Bold": "rubik-Bold.ttf"
+},
+"hebrew": true
+},
+{
+"family": "Assistant",
+"files": {
+"Regular": "assistant-Regular.ttf",
+"Bold": "assistant-Bold.ttf"
+},
+"hebrew": true
+},
+{
+"family": "Varela Round",
+"files": {
+"Regular": "varela-round-Regular.ttf"
+},
+"hebrew": true
+},
+{
+"family": "Secular One",
+"files": {
+"Regular": "secular-one-Regular.ttf"
+},
+"hebrew": true
+},
+{
+"family": "Alef",
+"files": {
+"Regular": "alef-Regular.ttf",
+"Bold": "alef-Bold.ttf"
+},
+"hebrew": true
+},
+{
+"family": "Frank Ruhl Libre",
+"files": {
+"Regular": "frank-ruhl-libre-Regular.ttf",
+"Bold": "frank-ruhl-libre-Bold.ttf"
+},
+"hebrew": true
+},
+{
+"family": "David Libre",
+"files": {
+"Regular": "david-libre-Regular.ttf",
+"Bold": "david-libre-Bold.ttf"
+},
+"hebrew": true
+},
+{
+"family": "Suez One",
+"files": {
+"Regular": "suez-one-Regular.ttf"
+},
+"hebrew": true
+},
+{
+"family": "Miriam Libre",
+"files": {
+"Regular": "miriam-libre-Regular.ttf",
+"Bold": "miriam-libre-Bold.ttf"
+},
+"hebrew": true
+},
+{
+"family": "Amatic SC",
+"files": {
+"Regular": "amatic-sc-Regular.ttf",
+"Bold": "amatic-sc-Bold.ttf"
+},
+"hebrew": true
+},
+{
+"family": "Bellefair",
+"files": {
+"Regular": "bellefair-Regular.ttf"
+},
+"hebrew": true
+},
+{
+"family": "Karantina",
+"files": {
+"Regular": "karantina-Regular.ttf",
+"Bold": "karantina-Bold.ttf"
+},
+"hebrew": true
+},
+{
+"family": "Rubik Bubbles",
+"files": {
+"Regular": "rubik-bubbles-Regular.ttf"
+},
+"hebrew": true
+},
+{
+"family": "Rubik Mono One",
+"files": {
+"Regular": "rubik-mono-one-Regular.ttf"
+},
+"hebrew": true
+},
+{
+"family": "Noto Serif Hebrew",
+"files": {
+"Regular": "noto-serif-hebrew-Regular.ttf",
+"Bold": "noto-serif-hebrew-Bold.ttf"
+},
+"hebrew": true
+},
+{
+"family": "Noto Rashi Hebrew",
+"files": {
+"Regular": "noto-rashi-hebrew-Regular.ttf",
+"Bold": "noto-rashi-hebrew-Bold.ttf"
+},
+"hebrew": true
+},
+{
+"family": "Roboto",
+"files": {
+"Regular": "roboto-Regular.ttf",
+"Bold": "roboto-Bold.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Open Sans",
+"files": {
+"Regular": "open-sans-Regular.ttf",
+"Bold": "open-sans-Bold.ttf"
+},
+"hebrew": true
+},
+{
+"family": "Montserrat",
+"files": {
+"Regular": "montserrat-Regular.ttf",
+"Bold": "montserrat-Bold.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Poppins",
+"files": {
+"Regular": "poppins-Regular.ttf",
+"Bold": "poppins-Bold.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Lato",
+"files": {
+"Regular": "lato-Regular.ttf",
+"Bold": "lato-Bold.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Oswald",
+"files": {
+"Regular": "oswald-Regular.ttf",
+"Bold": "oswald-Bold.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Raleway",
+"files": {
+"Regular": "raleway-Regular.ttf",
+"Bold": "raleway-Bold.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Nunito",
+"files": {
+"Regular": "nunito-Regular.ttf",
+"Bold": "nunito-Bold.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Quicksand",
+"files": {
+"Regular": "quicksand-Regular.ttf",
+"Bold": "quicksand-Bold.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Comfortaa",
+"files": {
+"Regular": "comfortaa-Regular.ttf",
+"Bold": "comfortaa-Bold.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Baloo 2",
+"files": {
+"Regular": "baloo-2-Regular.ttf",
+"Bold": "baloo-2-Bold.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Fredoka",
+"files": {
+"Regular": "fredoka-Regular.ttf",
+"Bold": "fredoka-Bold.ttf"
+},
+"hebrew": true
+},
+{
+"family": "Playfair Display",
+"files": {
+"Regular": "playfair-display-Regular.ttf",
+"Bold": "playfair-display-Bold.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Merriweather",
+"files": {
+"Regular": "merriweather-Regular.ttf",
+"Bold": "merriweather-Bold.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Pacifico",
+"files": {
+"Regular": "pacifico-Regular.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Lobster",
+"files": {
+"Regular": "lobster-Regular.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Dancing Script",
+"files": {
+"Regular": "dancing-script-Regular.ttf",
+"Bold": "dancing-script-Bold.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Caveat",
+"files": {
+"Regular": "caveat-Regular.ttf",
+"Bold": "caveat-Bold.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Satisfy",
+"files": {
+"Regular": "satisfy-Regular.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Great Vibes",
+"files": {
+"Regular": "great-vibes-Regular.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Permanent Marker",
+"files": {
+"Regular": "permanent-marker-Regular.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Bangers",
+"files": {
+"Regular": "bangers-Regular.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Chewy",
+"files": {
+"Regular": "chewy-Regular.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Righteous",
+"files": {
+"Regular": "righteous-Regular.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Bungee",
+"files": {
+"Regular": "bungee-Regular.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Titan One",
+"files": {
+"Regular": "titan-one-Regular.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Luckiest Guy",
+"files": {
+"Regular": "luckiest-guy-Regular.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Shrikhand",
+"files": {
+"Regular": "shrikhand-Regular.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Archivo Black",
+"files": {
+"Regular": "archivo-black-Regular.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Anton",
+"files": {
+"Regular": "anton-Regular.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Bebas Neue",
+"files": {
+"Regular": "bebas-neue-Regular.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Abril Fatface",
+"files": {
+"Regular": "abril-fatface-Regular.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Orbitron",
+"files": {
+"Regular": "orbitron-Regular.ttf",
+"Bold": "orbitron-Bold.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Press Start 2P",
+"files": {
+"Regular": "press-start-2p-Regular.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Black Ops One",
+"files": {
+"Regular": "black-ops-one-Regular.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Fredericka the Great",
+"files": {
+"Regular": "fredericka-the-great-Regular.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Sigmar One",
+"files": {
+"Regular": "sigmar-one-Regular.ttf"
+},
+"hebrew": false
+},
+{
+"family": "Lilita One",
+"files": {
+"Regular": "lilita-one-Regular.ttf"
+},
+"hebrew": false
+}
+]
