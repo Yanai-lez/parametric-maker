@@ -1,39 +1,39 @@
 <!doctype html>
-<html lang="he" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>מחולל פרמטרי תלת־ממד</title>
+<title>Parametric Maker</title>
 <script type="importmap">
 {"imports":{"three":"./vendor/three/three.module.js"}}
 </script>
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 
 </head>
 <body>
 <header>
-  <h1>מחולל פרמטרי תלת־ממד <small style="color:var(--mut);font-weight:400">v4</small></h1>
-  <button id="btnRender" class="pri">עדכן</button>
+  <h1>Parametric Maker <small style="color:var(--mut);font-weight:400">v5</small></h1>
+  <button id="btnRender" class="pri">Update</button>
   <button id="btnDl" disabled>3MF</button>
 </header>
 <main>
   <section id="params" class="pane"><div id="plist"></div></section>
   <section id="codepane" class="pane">
     <div class="bar">
-      <button id="btnUp">העלה קובץ</button>
-      <button id="btnPaste">הדבק מהלוח</button>
+      <button id="btnUp">Upload file</button>
+      <button id="btnPaste">Paste</button>
       <input id="file" type="file" style="display:none">
     </div>
-    <textarea id="code" placeholder="הדבק כאן קוד OpenSCAD, או העלה קובץ .scad" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+    <textarea id="code" placeholder="Paste OpenSCAD code here, or upload a .scad file" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
   </section>
-  <section id="view" class="pane"><canvas id="cv"></canvas><div id="status">טוען…</div></section>
+  <section id="view" class="pane"><canvas id="cv"></canvas><div id="status">Loading…</div></section>
 </main>
 <nav>
-  <button data-t="codepane" class="on">קוד</button>
-  <button data-t="params">פרמטרים</button>
-  <button data-t="view">תצוגה</button>
+  <button data-t="codepane" class="on">Code</button>
+  <button data-t="params">Parameters</button>
+  <button data-t="view">Preview</button>
 </nav>
 
-<script type="module" src="app.js?v=4"></script>
+<script type="module" src="app.js?v=5"></script>
 </body>
 </html>

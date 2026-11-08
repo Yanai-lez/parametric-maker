@@ -1,5 +1,5 @@
 # Parametric Maker
 
-מחולל מודלים פרמטרי לנייד: מדביקים או מעלים קובץ OpenSCAD, מקבלים פאנל פרמטרים (לפי הערות ה-Customizer), תצוגה תלת-ממדית וייצוא STL. הכול רץ בדפדפן.
+Mobile-friendly parametric model maker. Paste or upload OpenSCAD code, get a parameter panel built from the Customizer comments, a live 3D preview, and 3MF export. Everything runs in the browser.
 
-הקבצים שבתיקיית `vendor/` (OpenSCAD WASM ו-three.js) נשמרים בריפו כדי שהאתר לא יתלה ב-CDN.
+`vendor/` holds OpenSCAD WASM and three.js so the site does not depend on a CDN.

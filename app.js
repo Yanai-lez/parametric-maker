@@ -5,10 +5,10 @@ import {STLLoader} from './vendor/three/STLLoader.js';
 const OSCAD='./vendor/openscad.js';
 const $=s=>document.querySelector(s);
 
-/* ---------- פרסור Customizer ---------- */
+/* ---------- Customizer parser ---------- */
 let params=[], parsedSrc=null;
 function parse(src){
-  const out=[];let group='כללי',depth=0,prev='';
+  const out=[];let group='General',depth=0,prev='';
   for(const raw of src.split('\n')){
     const l=raw.trim();
     const g=l.match(/^\/\*\s*\[(.+?)\]\s*\*\//);
@@ -55,14 +55,14 @@ function arg(p){
   return `-D${p.name}=${v}`;
 }
 
-/* ---------- בניית ממשק פרמטרים ---------- */
+/* ---------- Parameter UI ---------- */
 function build(){
   const old=new Map(params.map(p=>[p.name+p.t,p]));
   params=parse($('#code').value);
   parsedSrc=$('#code').value;
   for(const p of params){const o=old.get(p.name+p.t);if(o&&o.dirty){p.v=o.v;p.dirty=true;}}
   const box=$('#plist');box.innerHTML='';
-  if(!params.length){const d=document.createElement('p');d.className='d';d.textContent='לא נמצאו פרמטרים. המודל נבנה מהקוד כמו שהוא.';box.append(d);return;}
+  if(!params.length){const d=document.createElement('p');d.className='d';d.textContent='No parameters found. The model is built from the code as is.';box.append(d);return;}
   let g=null;
   for(const p of params){
     if(p.group!==g){g=p.group;const h=document.createElement('h3');h.textContent=g;box.append(h);}
@@ -87,7 +87,7 @@ function build(){
   }
 }
 
-/* ---------- תצוגה תלת־ממדית ---------- */
+/* ---------- 3D view ---------- */
 const cv=$('#cv');
 const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
@@ -118,18 +118,18 @@ function show(buf){
   scene.remove(grid);grid=new THREE.GridHelper(gs,gs/10,0x334155,0x232833);grid.rotation.x=Math.PI/2;scene.add(grid);
 }
 
-/* ---------- רינדור OpenSCAD ---------- */
+/* ---------- OpenSCAD ---------- */
 let lastStl=null;
 let timer=null,busy=false,again=false,renderedSrc=null;
 function schedule(){clearTimeout(timer);timer=setTimeout(()=>render(true),500);}
 async function render(auto){
   if(busy){again=true;return;}
-  if(!$('#code').value.trim()){$('#status').textContent='אין קוד. הדבק או העלה קובץ בלשונית "קוד".';return;}
+  if(!$('#code').value.trim()){$('#status').textContent='No code yet. Paste or upload a file in the Code tab.';return;}
   busy=true;
   const btn=$('#btnRender'),st=$('#status');
   if($('#code').value!==parsedSrc)build();
   if(!auto)tab('view');btn.disabled=true;$('#btnDl').disabled=true;
-  st.textContent='מעדכן מודל…';
+  st.textContent='Updating model…';
   renderedSrc=$('#code').value;
   const log=[];
   try{
@@ -139,22 +139,22 @@ async function render(auto){
     inst.FS.writeFile('/in.scad',$('#code').value);
     const args=['/in.scad','-o','/out.stl'];
     for(const p of params) if(p.dirty) args.push(arg(p));
-    st.textContent='בונה את המודל…';
+    st.textContent='Building model…';
     await new Promise(r=>setTimeout(r,30));
     inst.callMain(args);
     const d=inst.FS.readFile('/out.stl');
     lastStl=new Uint8Array(d);
     show(lastStl.buffer.slice(0));
-    st.textContent='הסתיים ✔ '+(log.filter(l=>!/^\s*(Could not initialize|Geometry cache|CGAL|Edges|Halffacets|Facets|Volumes|Vertices|Halfedges|Rendering|Simple|Top level|Total|Geometries|Current)/.test(l)).join('\n')||'');
+    st.textContent='Done ✔ '+(log.filter(l=>!/^\s*(Could not initialize|Convex|Geometry cache|CGAL|Edges|Halffacets|Facets|Volumes|Vertices|Halfedges|Rendering|Simple|Top level|Total|Geometries|Current)/.test(l)).join('\n')||'');
     $('#btnDl').disabled=false;
   }catch(e){
-    st.textContent='שגיאה:\n'+(log.join('\n')||e.message||e);
+    st.textContent='Error:\n'+(log.join('\n')||e.message||e);
   }
   btn.disabled=false;busy=false;
   if(again){again=false;schedule();}
 }
 $('#btnRender').onclick=()=>render(false);
-/* ---------- ייצוא 3MF ---------- */
+/* ---------- 3MF export ---------- */
 const crcT=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
 function crc32(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=crcT[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
 function zip(files){
@@ -200,13 +200,13 @@ $('#btnDl').onclick=()=>{
   a.download='model.3mf';document.body.append(a);a.click();a.remove();
 };
 
-/* ---------- טעינת קוד ---------- */
+/* ---------- Load code ---------- */
 $('#btnUp').onclick=()=>$('#file').click();
 $('#file').onchange=e=>{
   const f=e.target.files&&e.target.files[0];if(!f)return;
   const r=new FileReader();
   r.onload=()=>{$('#code').value=String(r.result);params=[];build();tab('params');schedule();};
-  r.onerror=()=>alert('לא הצלחתי לקרוא את הקובץ');
+  r.onerror=()=>alert('Could not read the file');
   r.readAsText(f);
   e.target.value='';
 };
@@ -214,10 +214,10 @@ $('#btnPaste').onclick=async()=>{
   try{
     const t=await navigator.clipboard.readText();
     if(t){$('#code').value=t;params=[];build();tab('params');schedule();}
-  }catch{ $('#code').focus(); alert('הדפדפן לא אישר גישה ללוח. לחץ לחיצה ארוכה בתיבת הקוד והדבק ידנית.'); }
+  }catch{ $('#code').focus(); alert('Clipboard access was denied. Long-press in the code box and paste manually.'); }
 };
 
-/* ---------- לשוניות ---------- */
+/* ---------- Tabs ---------- */
 function tab(t){
   document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id===t||(t==='params'&&p.id==='view')));
   $('#view').classList.toggle('mini',t==='params');
