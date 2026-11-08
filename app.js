@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import {OrbitControls} from './vendor/three/OrbitControls.js';
-import {STLLoader} from './vendor/three/STLLoader.js';
 
 const OSCAD='./vendor/openscad.js';
 const FONTS=['Liberation Sans','Liberation Sans:style=Bold','Liberation Sans:style=Italic','Liberation Sans:style=Bold Italic'];
@@ -32,13 +31,63 @@ async function runScad(code,log){
       if(uploads.length){mkdirp(m.FS,'/uploads');for(const p of uploads)m.FS.writeFile('/uploads/'+safeName(p.file.name),p.file.data);}
     }]});
   inst.FS.writeFile('/in.scad',code);
-  const args=['/in.scad','-o','/out.stl','--backend=manifold'];
+  const args=['/in.scad','-o','/out.3mf','--backend=manifold'];
   for(const p of params) if(p.dirty||(p.t==='file'&&p.file)) args.push(arg(p));
   await new Promise(r=>setTimeout(r,20));
   inst.callMain(args);
-  return new Uint8Array(inst.FS.readFile('/out.stl'));
+  return new Uint8Array(inst.FS.readFile('/out.3mf'));
 }
 const $=s=>document.querySelector(s);
+
+/* ---------- Read OpenSCAD 3MF (geometry + colors) ---------- */
+async function unzipEntry(bytes,name){
+  const dv=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+  const u64=o=>Number(dv.getBigUint64(o,true));
+  let e=bytes.length-22;while(e>=0&&dv.getUint32(e,true)!==0x06054b50)e--;
+  if(e<0)throw new Error('Invalid 3MF from OpenSCAD');
+  let n=dv.getUint16(e+10,true),p=dv.getUint32(e+16,true);
+  if((p===0xFFFFFFFF||n===0xFFFF)&&e>=20&&dv.getUint32(e-20,true)===0x07064b50){ // zip64
+    const z=u64(e-20+8);n=u64(z+32);p=u64(z+48);
+  }
+  for(let i=0;i<n;i++){
+    const method=dv.getUint16(p+10,true),nl=dv.getUint16(p+28,true),el=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true);
+    let csize=dv.getUint32(p+20,true),usize=dv.getUint32(p+24,true),lho=dv.getUint32(p+42,true);
+    const fname=new TextDecoder().decode(bytes.subarray(p+46,p+46+nl));
+    if(csize===0xFFFFFFFF||usize===0xFFFFFFFF||lho===0xFFFFFFFF){ // zip64 extra field
+      let x=p+46+nl;const end=x+el;
+      while(x+4<=end){
+        const id=dv.getUint16(x,true),sz=dv.getUint16(x+2,true);
+        if(id===1){let q=x+4;if(usize===0xFFFFFFFF){usize=u64(q);q+=8;}if(csize===0xFFFFFFFF){csize=u64(q);q+=8;}if(lho===0xFFFFFFFF){lho=u64(q);}break;}
+        x+=4+sz;
+      }
+    }
+    p+=46+nl+el+cl;
+    if(fname!==name)continue;
+    const start=lho+30+dv.getUint16(lho+26,true)+dv.getUint16(lho+28,true);
+    const raw=bytes.subarray(start,start+csize);
+    if(method===0)return raw;
+    return new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+  }
+  throw new Error('3D model not found in 3MF');
+}
+// -> {pos:Float32Array (9 per triangle), col:Int32Array (0xRRGGBB per triangle, -1 = no color set)}
+async function parse3mf(bytes){
+  const txt=new TextDecoder().decode(await unzipEntry(bytes,'3D/3dmodel.model'));
+  const mats=[...txt.matchAll(/<base\b[^>]*?name="([^"]*)"[^>]*?displaycolor="#([0-9a-fA-F]{6})/g)].map(m=>({name:m[1],rgb:parseInt(m[2],16)}));
+  const pos=[],col=[];
+  for(const o of txt.matchAll(/<object\b([^>]*)>([\s\S]*?)<\/object>/g)){
+    const pi=o[1].match(/\bpindex="(\d+)"/),hasPid=/\bpid="/.test(o[1]);
+    const objIdx=hasPid?(pi?+pi[1]:0):-1;
+    const v=[];
+    for(const m of o[2].matchAll(/<vertex\s+x="([^"]+)"\s+y="([^"]+)"\s+z="([^"]+)"/g))v.push(+m[1],+m[2],+m[3]);
+    for(const t of o[2].matchAll(/<triangle\s+v1="(\d+)"\s+v2="(\d+)"\s+v3="(\d+)"(?:\s+pid="\d+"\s+p1="(\d+)")?/g)){
+      for(let k=1;k<=3;k++){const i=3*+t[k];pos.push(v[i],v[i+1],v[i+2]);}
+      const idx=t[4]!==undefined?+t[4]:objIdx,mt=idx>=0?mats[idx]:null;
+      col.push(mt&&mt.name!=='Default'?mt.rgb:-1);
+    }
+  }
+  return {pos:Float32Array.from(pos),col:Int32Array.from(col)};
+}
 
 /* ---------- Customizer parser ---------- */
 let params=[], parsedSrc=null;
@@ -149,11 +198,16 @@ let mesh=null;
 function resize(){const w=cv.clientWidth,h=cv.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);
 (function loop(){requestAnimationFrame(loop);controls.update();renderer.render(scene,camera);})();
-function show(buf){
-  const geo=new STLLoader().parse(buf);geo.computeVertexNormals();geo.computeBoundingBox();
+function show(model){
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(model.pos.slice(),3));
+  const cc=new Float32Array(model.col.length*9),c=new THREE.Color();
+  model.col.forEach((h,i)=>{c.setHex(h<0?0x4f8cff:h);for(let k=0;k<3;k++){cc[i*9+k*3]=c.r;cc[i*9+k*3+1]=c.g;cc[i*9+k*3+2]=c.b;}});
+  geo.setAttribute('color',new THREE.BufferAttribute(cc,3));
+  geo.computeVertexNormals();geo.computeBoundingBox();
   const b=geo.boundingBox;geo.translate(-(b.min.x+b.max.x)/2,-(b.min.y+b.max.y)/2,-b.min.z);
   if(mesh){scene.remove(mesh);mesh.geometry.dispose();}
-  mesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x4f8cff,roughness:.55,metalness:.1}));
+  mesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.55,metalness:.1}));
   scene.add(mesh);
   const s=new THREE.Vector3();b.getSize(s);
   const r=Math.max(s.length()/2,1);
@@ -191,7 +245,7 @@ async function render(auto){
     const res=[];
     for(const j of jobs){
       st.textContent=jobs.length>1?`Building ${j.id}…`:'Building model…';
-      res.push({id:j.id,exp:j.exp,stl:await runScad(src+'\n'+j.call+'\n',log)});
+      res.push({id:j.id,exp:j.exp,model:await parse3mf(await runScad(src+'\n'+j.call+'\n',log))});
     }
     results=res;
     const sel=$('#plateSel');
@@ -208,7 +262,7 @@ async function render(auto){
   btn.disabled=false;busy=false;
   if(again){again=false;schedule();}
 }
-function showSel(){const r=results&&results.find(x=>x.id===$('#plateSel').value);if(r)show(r.stl.buffer.slice(0));}
+function showSel(){const r=results&&results.find(x=>x.id===$('#plateSel').value);if(r)show(r.model);}
 $('#plateSel').onchange=showSel;
 $('#btnRender').onclick=()=>render(false);
 /* ---------- 3MF export ---------- */
@@ -233,32 +287,43 @@ function zip(files){
   e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cdLen,true);e.setUint32(16,off,true);
   return new Blob([...parts,...cd,new Uint8Array(e.buffer)],{type:'model/3mf'});
 }
-function meshOf(stlBuf){
-  const pos=new STLLoader().parse(stlBuf).attributes.position.array;
-  const map=new Map(),verts=[],tris=[];
-  for(let i=0;i<pos.length;i+=3){
-    const k=pos[i].toFixed(5)+','+pos[i+1].toFixed(5)+','+pos[i+2].toFixed(5);
-    let id=map.get(k);if(id===undefined){id=verts.length/3;map.set(k,id);verts.push(pos[i],pos[i+1],pos[i+2]);}
-    tris.push(id);
+function groupMesh(model,tris){
+  const map=new Map(),verts=[],idx=[];
+  for(const t of tris)for(let k=0;k<3;k++){
+    const o=t*9+k*3,x=model.pos[o],y=model.pos[o+1],z=model.pos[o+2];
+    const key=x.toFixed(5)+','+y.toFixed(5)+','+z.toFixed(5);
+    let id=map.get(key);if(id===undefined){id=verts.length/3;map.set(key,id);verts.push(x,y,z);}
+    idx.push(id);
   }
-  let v='',t='',minX=Infinity,maxX=-Infinity;
-  for(let i=0;i<verts.length;i+=3){v+=`<vertex x="${+verts[i].toFixed(5)}" y="${+verts[i+1].toFixed(5)}" z="${+verts[i+2].toFixed(5)}"/>`;minX=Math.min(minX,verts[i]);maxX=Math.max(maxX,verts[i]);}
-  for(let i=0;i<tris.length;i+=3)if(tris[i]!==tris[i+1]&&tris[i+1]!==tris[i+2]&&tris[i]!==tris[i+2])t+=`<triangle v1="${tris[i]}" v2="${tris[i+1]}" v3="${tris[i+2]}"/>`;
-  return {v,t,minX,maxX};
+  let v='',t='';
+  for(let i=0;i<verts.length;i+=3)v+=`<vertex x="${+verts[i].toFixed(5)}" y="${+verts[i+1].toFixed(5)}" z="${+verts[i+2].toFixed(5)}"/>`;
+  for(let i=0;i<idx.length;i+=3)if(idx[i]!==idx[i+1]&&idx[i+1]!==idx[i+2]&&idx[i]!==idx[i+2])t+=`<triangle v1="${idx[i]}" v2="${idx[i+1]}" v3="${idx[i+2]}"/>`;
+  return {v,t};
 }
 function to3mf(list){
-  let objs='',items='',x=0;
+  const mats=[];
+  for(const r of list)for(const h of r.model.col)if(h>=0&&!mats.includes(h))mats.push(h);
+  let objs='',items='',x=0,id=1;
   list.forEach((r,i)=>{
-    const m=meshOf(r.stl.buffer.slice(0)),id=i+1;
-    objs+=`<object id="${id}" type="model" name="${r.id}"><mesh><vertices>${m.v}</vertices><triangles>${m.t}</triangles></mesh></object>`;
-    const dx=i===0?0:x-m.minX;
-    items+=`<item objectid="${id}"${dx?` transform="1 0 0 0 1 0 0 0 1 ${+dx.toFixed(3)} 0 0"`:''}/>`;
-    x=(i===0?m.maxX:x+(m.maxX-m.minX))+10;
+    const m=r.model;let minX=Infinity,maxX=-Infinity;
+    for(let k=0;k<m.pos.length;k+=3){minX=Math.min(minX,m.pos[k]);maxX=Math.max(maxX,m.pos[k]);}
+    const groups=new Map();
+    m.col.forEach((h,t)=>{if(!groups.has(h))groups.set(h,[]);groups.get(h).push(t);});
+    const dx=i===0?0:x-minX;
+    for(const [h,tris] of groups){
+      const g=groupMesh(m,tris),oid=++id;
+      const pid=h>=0?` pid="1" pindex="${mats.indexOf(h)}"`:'';
+      const nm=list.length>1||groups.size>1?`${r.id}${h>=0?' #'+h.toString(16).padStart(6,'0'):''}`:r.id;
+      objs+=`<object id="${oid}" type="model" name="${nm}"${pid}><mesh><vertices>${g.v}</vertices><triangles>${g.t}</triangles></mesh></object>`;
+      items+=`<item objectid="${oid}"${dx?` transform="1 0 0 0 1 0 0 0 1 ${+dx.toFixed(3)} 0 0"`:''}/>`;
+    }
+    x=(i===0?maxX:x+(maxX-minX))+10;
   });
+  const bm=mats.length?`<basematerials id="1">${mats.map((h,i)=>`<base name="Color ${i+1}" displaycolor="#${h.toString(16).padStart(6,'0').toUpperCase()}FF"/>`).join('')}</basematerials>`:'';
   return zip([
     ['[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>'],
     ['_rels/.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>'],
-    ['3D/3dmodel.model',`<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><resources>${objs}</resources><build>${items}</build></model>`]
+    ['3D/3dmodel.model',`<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><resources>${bm}${objs}</resources><build>${items}</build></model>`]
   ]);
 }
 function save(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}

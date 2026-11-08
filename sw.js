@@ -1,4 +1,4 @@
-const CACHE='pm-shell-v4';
+const CACHE='pm-shell-v5';
 const SHELL=['./','index.html','style.css','app.js','manifest.webmanifest?v=4','logo.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==CACHE).map(x=>caches.delete(x)))).then(()=>self.clients.claim()));});
