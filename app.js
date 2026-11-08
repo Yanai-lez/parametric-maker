@@ -139,7 +139,7 @@ function mk(name,val,cm,desc,group){
   const lang=(navigator.language||document.documentElement.lang||'en').toLowerCase().startsWith('he')?'he':'en';
   p.label=p.meta['label-'+lang]||name.replace(/_/g,' ');
   p.description=p.meta['description-'+lang]||desc||'';
-  const o=cm.match(/^\[(.*)\]/);const opts=o?o[1].trim():null;
+  const o=cm.match(/^\[([^\]]*)\]/);const opts=o?o[1].trim():null;
   const type=(p.meta.type||'').toLowerCase();
   if(/^(true|false)$/.test(val)){p.t='bool';p.v=val==='true';}
   else if(/^".*"$/.test(val)){
