@@ -34,3 +34,7 @@ nav button.on{color:var(--ac);font-weight:700}
 #params.on{top:0}
 body:has(#view.mini) #params{top:50%}
 #view.mini #status{font-size:11px;padding:4px 8px;max-height:30%}
+header h1{min-width:0;font-size:14px;line-height:1.1}
+header h1 small{display:block}
+#plateSel{max-width:110px;padding:8px 6px;font-size:13px}
+header button{padding:9px 10px;white-space:nowrap}

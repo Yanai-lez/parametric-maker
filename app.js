@@ -3,6 +3,41 @@ import {OrbitControls} from './vendor/three/OrbitControls.js';
 import {STLLoader} from './vendor/three/STLLoader.js';
 
 const OSCAD='./vendor/openscad.js';
+const FONTS=['Liberation Sans','Liberation Sans:style=Bold','Liberation Sans:style=Italic','Liberation Sans:style=Bold Italic'];
+const FONT_FILES=['Regular','Bold','Italic','BoldItalic'];
+let fileName='model';
+const getBin=async u=>new Uint8Array(await (await fetch(u)).arrayBuffer());
+let fontCache=null,libCache={};
+async function fonts(){return fontCache||(fontCache=Promise.all(FONT_FILES.map(async f=>[f,await getBin(`./vendor/fonts/LiberationSans-${f}.ttf`)])));}
+async function lib(name){
+  if(!libCache[name])libCache[name]=(async()=>{
+    const list=await (await fetch(`./libs/${name}/manifest.json`)).json();
+    return Promise.all(list.map(async f=>[f,await getBin(`./libs/${name}/${f}`)]));
+  })();
+  return libCache[name];
+}
+const mkdirp=(FS,p)=>{let c='';for(const s of p.split('/').filter(Boolean)){c+='/'+s;try{FS.mkdir(c);}catch{}}};
+async function runScad(code,log){
+  const mod=await import(OSCAD);
+  const fnt=await fonts();
+  const libs=/\b(include|use)\s*<\s*BOSL2\//.test(code)?await lib('BOSL2'):null;
+  const uploads=params.filter(p=>p.t==='file'&&p.file);
+  const inst=await mod.default({noInitialRun:true,print:t=>log.push(t),printErr:t=>log.push(t),
+    preRun:[m=>{
+      m.ENV.FONTCONFIG_PATH='/fonts';m.ENV.OPENSCADPATH='/libraries';
+      mkdirp(m.FS,'/fonts');mkdirp(m.FS,'/tmp/fc');
+      for(const [f,d] of fnt)m.FS.writeFile(`/fonts/LiberationSans-${f}.ttf`,d);
+      m.FS.writeFile('/fonts/fonts.conf','<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd"><fontconfig><dir>/fonts</dir><cachedir>/tmp/fc</cachedir></fontconfig>');
+      if(libs){mkdirp(m.FS,'/libraries/BOSL2');for(const [f,d] of libs)m.FS.writeFile(`/libraries/BOSL2/${f}`,d);}
+      if(uploads.length){mkdirp(m.FS,'/uploads');for(const p of uploads)m.FS.writeFile('/uploads/'+safeName(p.file.name),p.file.data);}
+    }]});
+  inst.FS.writeFile('/in.scad',code);
+  const args=['/in.scad','-o','/out.stl','--backend=manifold'];
+  for(const p of params) if(p.dirty||(p.t==='file'&&p.file)) args.push(arg(p));
+  await new Promise(r=>setTimeout(r,20));
+  inst.callMain(args);
+  return new Uint8Array(inst.FS.readFile('/out.stl'));
+}
 const $=s=>document.querySelector(s);
 
 /* ---------- Customizer parser ---------- */
@@ -34,7 +69,10 @@ function mk(name,val,cm,desc,group){
   if(/^(true|false)$/.test(val)){p.t='bool';p.v=val==='true';}
   else if(/^".*"$/.test(val)){
     p.v=val.slice(1,-1);
-    if(opts!==null){p.t='sel';p.isStr=true;p.o=sel(opts);} else p.t='str';
+    if(/^color\b/.test(cm)&&/^#[0-9a-f]{6}$/i.test(p.v)){p.t='color';}
+    else if(/^font\b/.test(cm)){p.t='font';}
+    else if(/^default\.(png|svg|stl)$/i.test(p.v)){p.t='file';p.file=null;}
+    else if(opts!==null){p.t='sel';p.isStr=true;p.o=sel(opts);} else p.t='str';
   }
   else if(/^-?(\d+\.?\d*|\.\d+)(e-?\d+)?$/i.test(val)){
     p.v=+val;
@@ -49,9 +87,11 @@ function mk(name,val,cm,desc,group){
   else {p.t='raw';p.v=val;}
   return p;
 }
+const safeName=n=>String(n).replace(/[^\w.-]/g,'_');
 function arg(p){
   let v=p.v;
-  if(p.t==='str'||(p.t==='sel'&&p.isStr)) v='"'+String(v).replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"';
+  if(p.t==='file') v=p.file?'/uploads/'+safeName(p.file.name):p.v;
+  if(['str','color','font','file'].includes(p.t)||(p.t==='sel'&&p.isStr)) v='"'+String(v).replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"';
   return `-D${p.name}=${v}`;
 }
 
@@ -60,7 +100,7 @@ function build(){
   const old=new Map(params.map(p=>[p.name+p.t,p]));
   params=parse($('#code').value);
   parsedSrc=$('#code').value;
-  for(const p of params){const o=old.get(p.name+p.t);if(o&&o.dirty){p.v=o.v;p.dirty=true;}}
+  for(const p of params){const o=old.get(p.name+p.t);if(o&&o.dirty){p.v=o.v;p.dirty=true;if(o.file)p.file=o.file;}}
   const box=$('#plist');box.innerHTML='';
   if(!params.length){const d=document.createElement('p');d.className='d';d.textContent='No parameters found. The model is built from the code as is.';box.append(d);return;}
   let g=null;
@@ -82,6 +122,14 @@ function build(){
     else if(p.t==='sel'){el=document.createElement('select');
       for(const o of p.o){const op=document.createElement('option');op.value=o.v;op.textContent=o.l;if(String(o.v)===String(p.v))op.selected=true;el.append(op);}
       el.onchange=()=>{p.v=el.value;touch();};}
+    else if(p.t==='color'){el=document.createElement('input');el.type='color';el.value=p.v;el.oninput=()=>{p.v=el.value;vl.textContent=el.value;touch();};vl.textContent=p.v;}
+    else if(p.t==='font'){el=document.createElement('select');
+      const list=FONTS.includes(p.v)?FONTS:[p.v,...FONTS];
+      for(const f of list){const op=document.createElement('option');op.value=f;op.textContent=FONTS.includes(f)?f:f+' (falls back to Liberation Sans)';if(f===p.v)op.selected=true;el.append(op);}
+      el.onchange=()=>{p.v=el.value;touch();};}
+    else if(p.t==='file'){el=document.createElement('input');el.type='file';vl.textContent=p.file?p.file.name:'default file needed';
+      if(p.v.toLowerCase().endsWith('.svg'))el.accept='.svg,image/svg+xml';else if(p.v.toLowerCase().endsWith('.stl'))el.accept='.stl';else el.accept='.png,image/png';
+      el.onchange=async()=>{const f=el.files[0];if(!f)return;p.file={name:f.name,data:new Uint8Array(await f.arrayBuffer())};vl.textContent=f.name;touch();};}
     else {el=document.createElement('input');el.type='text';el.value=p.v;el.oninput=()=>{p.v=el.value;touch();};}
     r.append(el);box.append(r);
   }
@@ -119,39 +167,49 @@ function show(buf){
 }
 
 /* ---------- OpenSCAD ---------- */
-let lastStl=null;
+let results=null;
 let timer=null,busy=false,again=false,renderedSrc=null;
 function schedule(){clearTimeout(timer);timer=setTimeout(()=>render(true),500);}
 async function render(auto){
   if(busy){again=true;return;}
-  if(!$('#code').value.trim()){$('#status').textContent='No code yet. Paste or upload a file in the Code tab.';return;}
-  busy=true;
-  const btn=$('#btnRender'),st=$('#status');
+  const st=$('#status'),src=$('#code').value;
+  if(!src.trim()){st.textContent='No code yet. Paste or upload a file in the Code tab.';return;}
   if($('#code').value!==parsedSrc)build();
+  const need=params.find(p=>p.t==='file'&&!p.file);
+  if(need){st.textContent='Upload a file for "'+need.name.replace(/_/g,' ')+'" in the Parameters tab.';return;}
+  busy=true;
+  const btn=$('#btnRender');
   if(!auto)tab('view');btn.disabled=true;$('#btnDl').disabled=true;
   st.textContent='Updating model…';
-  renderedSrc=$('#code').value;
+  renderedSrc=src;
   const log=[];
   try{
-    const mod=await import(OSCAD);
-    const inst=await mod.default({noInitialRun:true,print:t=>log.push(t),printErr:t=>log.push(t)});
-    inst.FS.writeFile('/in.scad',$('#code').value);
-    const args=['/in.scad','-o','/out.stl','--backend=manifold'];
-    for(const p of params) if(p.dirty) args.push(arg(p));
-    st.textContent='Building model…';
-    await new Promise(r=>setTimeout(r,30));
-    inst.callMain(args);
-    const d=inst.FS.readFile('/out.stl');
-    lastStl=new Uint8Array(d);
-    show(lastStl.buffer.slice(0));
+    const plates=[...src.matchAll(/module\s+mw_plate_(\d+)\s*\(/g)].map(m=>+m[1]).sort((a,b)=>a-b);
+    const asm=/module\s+mw_assembly_view\s*\(/.test(src);
+    const jobs=plates.length?plates.map(n=>({id:'Plate '+n,call:`mw_plate_${n}();`,exp:true})):[{id:'Model',call:'',exp:true}];
+    if(asm&&plates.length)jobs.unshift({id:'Assembly view',call:'mw_assembly_view();',exp:false});
+    const res=[];
+    for(const j of jobs){
+      st.textContent=jobs.length>1?`Building ${j.id}…`:'Building model…';
+      res.push({id:j.id,exp:j.exp,stl:await runScad(src+'\n'+j.call+'\n',log)});
+    }
+    results=res;
+    const sel=$('#plateSel');
+    const prev=sel.value;
+    sel.innerHTML='';for(const r of res){const o=document.createElement('option');o.value=r.id;o.textContent=r.id;sel.append(o);}
+    sel.style.display=res.length>1?'':'none';
+    if(res.some(r=>r.id===prev))sel.value=prev;
+    showSel();
     st.textContent='Done ✔ '+log.filter(l=>/ERROR|WARNING/.test(l)).join('\n');
-    $('#btnDl').disabled=false;
+    $('#btnDl').disabled=!res.some(r=>r.exp);
   }catch(e){
     st.textContent='Error:\n'+(log.join('\n')||e.message||e);
   }
   btn.disabled=false;busy=false;
   if(again){again=false;schedule();}
 }
+function showSel(){const r=results&&results.find(x=>x.id===$('#plateSel').value);if(r)show(r.stl.buffer.slice(0));}
+$('#plateSel').onchange=showSel;
 $('#btnRender').onclick=()=>render(false);
 /* ---------- 3MF export ---------- */
 const crcT=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
@@ -175,7 +233,7 @@ function zip(files){
   e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cdLen,true);e.setUint32(16,off,true);
   return new Blob([...parts,...cd,new Uint8Array(e.buffer)],{type:'model/3mf'});
 }
-function to3mf(stlBuf){
+function meshOf(stlBuf){
   const pos=new STLLoader().parse(stlBuf).attributes.position.array;
   const map=new Map(),verts=[],tris=[];
   for(let i=0;i<pos.length;i+=3){
@@ -183,26 +241,35 @@ function to3mf(stlBuf){
     let id=map.get(k);if(id===undefined){id=verts.length/3;map.set(k,id);verts.push(pos[i],pos[i+1],pos[i+2]);}
     tris.push(id);
   }
-  let v='',t='';
-  for(let i=0;i<verts.length;i+=3)v+=`<vertex x="${+verts[i].toFixed(5)}" y="${+verts[i+1].toFixed(5)}" z="${+verts[i+2].toFixed(5)}"/>`;
+  let v='',t='',minX=Infinity,maxX=-Infinity;
+  for(let i=0;i<verts.length;i+=3){v+=`<vertex x="${+verts[i].toFixed(5)}" y="${+verts[i+1].toFixed(5)}" z="${+verts[i+2].toFixed(5)}"/>`;minX=Math.min(minX,verts[i]);maxX=Math.max(maxX,verts[i]);}
   for(let i=0;i<tris.length;i+=3)if(tris[i]!==tris[i+1]&&tris[i+1]!==tris[i+2]&&tris[i]!==tris[i+2])t+=`<triangle v1="${tris[i]}" v2="${tris[i+1]}" v3="${tris[i+2]}"/>`;
+  return {v,t,minX,maxX};
+}
+function to3mf(list){
+  let objs='',items='',x=0;
+  list.forEach((r,i)=>{
+    const m=meshOf(r.stl.buffer.slice(0)),id=i+1;
+    objs+=`<object id="${id}" type="model" name="${r.id}"><mesh><vertices>${m.v}</vertices><triangles>${m.t}</triangles></mesh></object>`;
+    const dx=i===0?0:x-m.minX;
+    items+=`<item objectid="${id}"${dx?` transform="1 0 0 0 1 0 0 0 1 ${+dx.toFixed(3)} 0 0"`:''}/>`;
+    x=(i===0?m.maxX:x+(m.maxX-m.minX))+10;
+  });
   return zip([
     ['[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>'],
     ['_rels/.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>'],
-    ['3D/3dmodel.model',`<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><resources><object id="1" type="model"><mesh><vertices>${v}</vertices><triangles>${t}</triangles></mesh></object></resources><build><item objectid="1"/></build></model>`]
+    ['3D/3dmodel.model',`<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><resources>${objs}</resources><build>${items}</build></model>`]
   ]);
 }
-$('#btnDl').onclick=()=>{
-  if(!lastStl)return;
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(to3mf(lastStl.buffer.slice(0)));
-  a.download='model.3mf';document.body.append(a);a.click();a.remove();
-};
+function save(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}
+$('#btnDl').onclick=()=>{if(!results)return;const l=results.filter(r=>r.exp);if(l.length)save(to3mf(l),fileName+'.3mf');};
+$('#btnSave').onclick=()=>{const t=$('#code').value;if(!t.trim())return;save(new Blob([t],{type:'text/plain'}),fileName+'.scad');};
 
 /* ---------- Load code ---------- */
 $('#btnUp').onclick=()=>$('#file').click();
 $('#file').onchange=e=>{
   const f=e.target.files&&e.target.files[0];if(!f)return;
+  fileName=f.name.replace(/\.[^.]*$/,'').replace(/[^\w.\- ]/g,'_')||'model';
   const r=new FileReader();
   r.onload=()=>{$('#code').value=String(r.result);params=[];build();tab('params');schedule();};
   r.onerror=()=>alert('Could not read the file');
