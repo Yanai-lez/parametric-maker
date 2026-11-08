@@ -8,6 +8,13 @@
 {"imports":{"three":"./vendor/three/three.module.js"}}
 </script>
 <link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f1115">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Param Maker">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
 
 </head>
 <body>
@@ -24,6 +31,7 @@
       <button id="btnUp">Upload file</button>
       <button id="btnPaste">Paste</button>
       <button id="btnSave">Save .scad</button>
+      <button id="btnInstall" style="display:none">Install app</button>
       <input id="file" type="file" style="display:none">
     </div>
     <textarea id="code" placeholder="Paste OpenSCAD code here, or upload a .scad file" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
