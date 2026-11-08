@@ -45,7 +45,7 @@ async function runScad(code,log){
       for(const [fn,d] of xf)m.FS.writeFile('/fonts/'+fn,d);
       m.FS.writeFile('/fonts/fonts.conf','<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd"><fontconfig><dir>/fonts</dir><cachedir>/tmp/fc</cachedir></fontconfig>');
       if(libs){mkdirp(m.FS,'/libraries/BOSL2');for(const [f,d] of libs)m.FS.writeFile(`/libraries/BOSL2/${f}`,d);}
-      if(uploads.length){mkdirp(m.FS,'/uploads');for(const p of uploads)m.FS.writeFile('/uploads/'+safeName(p.file.name),p.file.data);}
+      if(uploads.length){mkdirp(m.FS,'/uploads');for(const p of uploads)m.FS.writeFile(upPath(p),p.file.data);}
     }]});
   inst.FS.writeFile('/in.scad',code);
   const args=['/in.scad','-o','/out.3mf','--backend=manifold','--enable=textmetrics'];
@@ -109,14 +109,17 @@ async function parse3mf(bytes){
 /* ---------- Customizer parser ---------- */
 let params=[], parsedSrc=null;
 function parse(src){
-  const out=[];let group='General',depth=0,prev='';
+  const out=[];let group='General',depth=0,prev='',hidden=false;
   for(const raw of src.split('\n')){
     const l=raw.trim();
     const g=l.match(/^\/\*\s*\[(.+?)\]\s*\*\//);
-    if(g&&depth===0){if(g[1].trim().toLowerCase()==='hidden')break;group=g[1].trim();prev='';continue;}
+    // Like the OpenSCAD Customizer: [Hidden] only hides the parameters up to the next group.
+    if(g&&depth===0){group=g[1].trim();hidden=group.toLowerCase()==='hidden';prev='';continue;}
     if(depth===0){
       const m=l.match(/^(\$?[A-Za-z_]\w*)\s*=\s*(.+?)\s*;\s*(?:\/\/\s*(.*))?$/);
-      if(m){out.push(mk(m[1],m[2].trim(),m[3]||'',prev,group));prev='';}
+      // a value with a ";" outside of a string means several statements on one line: not a parameter
+      if(m&&m[2].replace(/"(?:[^"\\]|\\.)*"/g,'').includes(';')){prev='';}
+      else if(m){if(!hidden)out.push(mk(m[1],m[2].trim(),m[3]||'',prev,group));prev='';}
       else if(l.startsWith('//'))prev+=(prev?' ':'')+l.slice(2).trim();
       else if(l)prev='';
     }
@@ -143,12 +146,13 @@ function mk(name,val,cm,desc,group){
   const type=(p.meta.type||'').toLowerCase();
   if(/^(true|false)$/.test(val)){p.t='bool';p.v=val==='true';}
   else if(/^".*"$/.test(val)){
-    p.v=val.slice(1,-1);
+    // show the real text, not the escaped source (\" \\ \n \t); arg() escapes it again on output
+    p.v=val.slice(1,-1).replace(/\\(["\\nrt])/g,(m,c)=>({n:'\n',r:'\r',t:'\t'})[c]||c);
     if(type==='file'||type==='image'||/^default\.(png|jpe?g|webp|gif|svg|stl|dxf)$/i.test(p.v)){p.t='file';p.file=null;}
     else if(type==='color'||(/^color\b/i.test(cm)&&/^#[0-9a-f]{6}$/i.test(p.v))){p.t='color';}
     else if(type==='font'||/^font\b/i.test(cm)){p.t='font';}
     else if(opts!==null){p.t='sel';p.isStr=true;p.o=sel(opts);}
-    else p.t=type==='textarea'?'textarea':'str';
+    else p.t=(type==='textarea'||/[\r\n]/.test(p.v))?'textarea':'str';
   }
   else if(/^\[[\s\d.,+-]+\]$/.test(val)){const a=val.slice(1,-1).split(',').map(x=>Number(x.trim()));if(a.length>=2&&a.length<=4&&a.every(Number.isFinite)){p.t='vec';p.v=a;}else{p.t='raw';p.v=val;}}
   else if(/^-?(\d+\.?\d*|\.\d+)(e-?\d+)?$/i.test(val)){
@@ -166,15 +170,25 @@ function mk(name,val,cm,desc,group){
   return p;
 }
 const safeName=n=>String(n).replace(/[^\w.-]/g,'_');
+// one path per upload control, so two controls given files with the same name do not overwrite each other
+const upPath=p=>'/uploads/'+safeName(p.name)+'__'+safeName(p.file.name);
 function arg(p){
   let v=p.v;
-  if(p.t==='file')v=p.file?'/uploads/'+safeName(p.file.name):p.v;
+  if(p.t==='file')v=p.file?upPath(p):p.v;
   if(p.t==='vec')v='['+p.v.join(',')+']';
   if(['str','textarea','color','font','file'].includes(p.t)||(p.t==='sel'&&p.isStr))v='"'+String(v).replace(/\\/g,'\\\\').replace(/"/g,'\\\"').replace(/\r\n|\r|\n/g,'\\n').replace(/\t/g,'\\t')+'"';
   return `-D${p.name}=${v}`;
 }
 
 /* ---------- Parameter UI ---------- */
+// style.css forces direction:ltr on text fields, which overrides dir="auto". Pick the direction from the
+// first strong character instead, so Hebrew text (punctuation, numbers, brackets) is laid out right-to-left.
+const RTL_CH=/[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/;
+function autoDir(el){
+  const m=el.value.match(/[A-Za-z\u00C0-\u024F\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/);
+  const rtl=!!m&&RTL_CH.test(m[0]);
+  el.style.direction=rtl?'rtl':'ltr';el.style.textAlign=rtl?'right':'left';
+}
 function build(){
   const old=new Map(params.map(p=>[p.name+p.t,p]));
   params=parse($('#code').value);
@@ -213,9 +227,9 @@ function build(){
     else if(p.t==='file'){el=document.createElement('input');el.type='file';vl.textContent=p.file?p.file.name:p.v+' (tap to upload)';
       el.accept=p.accept||'image/*,.svg,.stl,.dxf';
       el.onchange=async()=>{const f=el.files[0];if(!f)return;p.file={name:f.name,data:new Uint8Array(await f.arrayBuffer())};vl.textContent=f.name;touch();};}
-    else if(p.t==='textarea'){el=document.createElement('textarea');el.rows=3;el.value=p.v;el.dir='auto';el.oninput=()=>{p.v=el.value;touch();};}
+    else if(p.t==='textarea'){el=document.createElement('textarea');el.rows=3;el.value=p.v;el.dir='auto';autoDir(el);el.oninput=()=>{p.v=el.value;autoDir(el);touch();};}
     else if(p.t==='vec'){el=document.createElement('div');el.style.display='flex';el.style.gap='6px';p.v.forEach((v,i)=>{const n=document.createElement('input');n.type='number';n.step='any';n.value=v;n.setAttribute('aria-label','Vector '+(i+1));n.oninput=()=>{if(n.value!==''){p.v[i]=+n.value;touch();}};el.append(n);});}
-    else {el=document.createElement('input');el.type='text';el.value=p.v;el.dir='auto';el.oninput=()=>{p.v=el.value;touch();};}
+    else {el=document.createElement('input');el.type='text';el.value=p.v;el.dir='auto';autoDir(el);el.oninput=()=>{p.v=el.value;autoDir(el);touch();};}
     r.append(el);box.append(r);
   }
 }
