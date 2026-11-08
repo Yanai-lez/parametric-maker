@@ -170,7 +170,7 @@ function arg(p){
   let v=p.v;
   if(p.t==='file')v=p.file?'/uploads/'+safeName(p.file.name):p.v;
   if(p.t==='vec')v='['+p.v.join(',')+']';
-  if(['str','textarea','color','font','file'].includes(p.t)||(p.t==='sel'&&p.isStr))v='"'+String(v).replace(/\\/g,'\\\\').replace(/"/g,'\\\"')+'"';
+  if(['str','textarea','color','font','file'].includes(p.t)||(p.t==='sel'&&p.isStr))v='"'+String(v).replace(/\\/g,'\\\\').replace(/"/g,'\\\"').replace(/\r\n|\r|\n/g,'\\n').replace(/\t/g,'\\t')+'"';
   return `-D${p.name}=${v}`;
 }
 
