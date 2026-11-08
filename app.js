@@ -150,7 +150,7 @@ function mk(name,val,cm,desc,group){
     else if(opts!==null){p.t='sel';p.isStr=true;p.o=sel(opts);}
     else p.t=type==='textarea'?'textarea':'str';
   }
-  else if(/^\[[\s\d.,+-]+\]$/.test(val)){p.t='vec';p.v=val.slice(1,-1).split(',').map(x=>Number(x.trim()));}
+  else if(/^\[[\s\d.,+-]+\]$/.test(val)){const a=val.slice(1,-1).split(',').map(x=>Number(x.trim()));if(a.length>=2&&a.length<=4&&a.every(Number.isFinite)){p.t='vec';p.v=a;}else{p.t='raw';p.v=val;}}
   else if(/^-?(\d+\.?\d*|\.\d+)(e-?\d+)?$/i.test(val)){
     p.v=+val;
     if(opts!==null){
