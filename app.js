@@ -170,7 +170,7 @@ function arg(p){
   let v=p.v;
   if(p.t==='file')v=p.file?'/uploads/'+safeName(p.file.name):p.v;
   if(p.t==='vec')v='['+p.v.join(',')+']';
-  if(['str','color','font','file'].includes(p.t)||(p.t==='sel'&&p.isStr))v='"'+String(v).replace(/\\/g,'\\\\').replace(/"/g,'\\\"')+'"';
+  if(['str','textarea','color','font','file'].includes(p.t)||(p.t==='sel'&&p.isStr))v='"'+String(v).replace(/\\/g,'\\\\').replace(/"/g,'\\\"')+'"';
   return `-D${p.name}=${v}`;
 }
 
@@ -184,7 +184,7 @@ function build(){
   if(!params.length){const d=document.createElement('p');d.className='d';d.textContent='No parameters found. The model is built from the code as is.';box.append(d);return;}
   let g=null;
   for(const p of params){
-    if(p.group!==g){g=p.group;const h=document.createElement('h3');h.textContent=g;box.append(h);}
+    if(p.group!==g){g=p.group;const h=document.createElement('h3');h.textContent=g;h.dir='auto';box.append(h);}
     const r=document.createElement('div');r.className='row';
     const lab=document.createElement('label');
     const nm=document.createElement('span');nm.textContent=p.label||p.name.replace(/_/g,' ');nm.dir='auto';
