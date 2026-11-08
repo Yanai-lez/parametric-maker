@@ -136,7 +136,7 @@ function mk(name,val,cm,desc,group){
   // @type:text|textarea|file|image, @accept:.png,.svg
   for(const x of cm.matchAll(/@(label-he|label-en|description-he|description-en|type|accept)\s*:\s*([^@]*?)(?=\s+@|$)/gi))
     p.meta[x[1].toLowerCase()]=x[2].trim();
-  const lang=(document.documentElement.lang||navigator.language||'en').toLowerCase().startsWith('he')?'he':'en';
+  const lang=(navigator.language||document.documentElement.lang||'en').toLowerCase().startsWith('he')?'he':'en';
   p.label=p.meta['label-'+lang]||name.replace(/_/g,' ');
   p.description=p.meta['description-'+lang]||desc||'';
   const o=cm.match(/^\[(.*)\]/);const opts=o?o[1].trim():null;
