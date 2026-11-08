@@ -89,7 +89,7 @@ function build(){
   parsedSrc=$('#code').value;
   for(const p of params){const o=old.get(p.name+p.t);if(o&&o.dirty){p.v=o.v;p.dirty=true;}}
   const box=$('#plist');box.innerHTML='';
-  if(!params.length){const d=document.createElement('p');d.className='d';d.textContent='לא נמצאו פרמטרים. אפשר לרנדר את הקוד כמו שהוא.';box.append(d);return;}
+  if(!params.length){const d=document.createElement('p');d.className='d';d.textContent='לא נמצאו פרמטרים. המודל נבנה מהקוד כמו שהוא.';box.append(d);return;}
   let g=null;
   for(const p of params){
     if(p.group!==g){g=p.group;const h=document.createElement('h3');h.textContent=g;box.append(h);}
@@ -100,7 +100,7 @@ function build(){
     lab.append(nm,vl);r.append(lab);
     if(p.desc){const d=document.createElement('div');d.className='d';d.textContent=p.desc;r.append(d);}
     let el;
-    const touch=()=>{p.dirty=true;$('#status').textContent='הפרמטרים שונו. לחץ "רנדר"';};
+    const touch=()=>{p.dirty=true;schedule();};
     if(p.t==='bool'){el=document.createElement('input');el.type='checkbox';el.checked=p.v;el.onchange=()=>{p.v=el.checked;touch();};}
     else if(p.t==='num'){el=document.createElement('input');el.type='range';el.min=p.min;el.max=p.max;el.step=p.step;el.value=p.v;vl.textContent=p.v;
       el.oninput=()=>{p.v=+el.value;vl.textContent=el.value;touch();};}
@@ -147,11 +147,15 @@ function show(buf){
 
 /* ---------- רינדור OpenSCAD ---------- */
 let lastStl=null;
-async function render(){
+let timer=null,busy=false,again=false;
+function schedule(){clearTimeout(timer);timer=setTimeout(()=>render(true),500);}
+async function render(auto){
+  if(busy){again=true;return;}
+  busy=true;
   const btn=$('#btnRender'),st=$('#status');
   if($('#code').value!==parsedSrc)build();
-  tab('view');btn.disabled=true;$('#btnDl').disabled=true;
-  st.textContent='טוען מנוע (בפעם הראשונה זה לוקח כמה שניות)…';
+  if(!auto)tab('view');btn.disabled=true;$('#btnDl').disabled=true;
+  st.textContent='מעדכן מודל…';
   const log=[];
   try{
     const mod=await import(OSCAD);
@@ -160,7 +164,7 @@ async function render(){
     inst.FS.writeFile('/in.scad',$('#code').value);
     const args=['/in.scad','-o','/out.stl'];
     for(const p of params) if(p.dirty) args.push(arg(p));
-    st.textContent='מרנדר…';
+    st.textContent='בונה את המודל…';
     await new Promise(r=>setTimeout(r,30));
     inst.callMain(args);
     const d=inst.FS.readFile('/out.stl');
@@ -171,9 +175,10 @@ async function render(){
   }catch(e){
     st.textContent='שגיאה:\n'+(log.join('\n')||e.message||e);
   }
-  btn.disabled=false;
+  btn.disabled=false;busy=false;
+  if(again){again=false;schedule();}
 }
-$('#btnRender').onclick=render;
+$('#btnRender').onclick=()=>render(false);
 $('#btnDl').onclick=()=>{
   if(!lastStl)return;
   const a=document.createElement('a');
@@ -196,13 +201,14 @@ $('#btnPaste').onclick=async()=>{
 
 /* ---------- לשוניות ---------- */
 function tab(t){
-  document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id===t));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id===t||(t==='params'&&p.id==='view')));
+  $('#view').classList.toggle('mini',t==='params');
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
   if(t==='params'&&$('#code').value!==parsedSrc)build();
-  if(t==='view')requestAnimationFrame(resize);
+  if(t==='view'||t==='params')requestAnimationFrame(resize);
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
 
 let saved=null;try{saved=localStorage.getItem('pm.code');}catch{}
-$('#code').value=saved||SAMPLE;build();
+$('#code').value=saved||SAMPLE;build();tab('params');setTimeout(()=>render(true),300);
 $('#code').addEventListener('input',()=>{try{localStorage.setItem('pm.code',$('#code').value);}catch{}});
